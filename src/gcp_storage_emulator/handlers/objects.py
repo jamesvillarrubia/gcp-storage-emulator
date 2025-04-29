@@ -250,9 +250,9 @@ def _delete(storage, bucket_name, object_id):
         return False
 
 
-def _patch(storage, bucket_name, object_id, metadata):
+def _patch(request, storage, bucket_name, object_id, metadata):
     try:
-        obj = storage.get_file_obj(bucket_name, object_id)
+        obj = storage.get_file_obj(request.base_url, bucket_name, object_id)
         obj = _patch_object(obj, metadata)
         storage.patch_object(bucket_name, object_id, obj)
         return obj
@@ -344,7 +344,7 @@ def get(request, response, storage, *args, **kwargs):
         return download(request, response, storage)
     try:
         obj = storage.get_file_obj(
-            request.params["bucket_name"], request.params["object_id"]
+            request.base_url, request.params["bucket_name"], request.params["object_id"]
         )
         response.json(obj)
     except NotFound:
@@ -371,7 +371,7 @@ def ls(request, response, storage, *args, **kwargs):
 def copy(request, response, storage, *args, **kwargs):
     try:
         obj = storage.get_file_obj(
-            request.params["bucket_name"], request.params["object_id"]
+            request.base_url, request.params["bucket_name"], request.params["object_id"]
         )
     except NotFound:
         response.status = HTTPStatus.NOT_FOUND
@@ -410,7 +410,7 @@ def compose(request, response, storage, *args, **kwargs):
         for src_obj in request.data["sourceObjects"]:
             if content_type is None:
                 temp = storage.get_file_obj(
-                    request.params["bucket_name"], src_obj["name"]
+                    request.base_url, request.params["bucket_name"], src_obj["name"]
                 )
                 content_type = temp["contentType"]
             dest_file += storage.get_file(
@@ -451,7 +451,7 @@ def download(request, response, storage, *args, **kwargs):
             request.params["bucket_name"], request.params["object_id"]
         )
         obj = storage.get_file_obj(
-            request.params["bucket_name"], request.params["object_id"]
+            request.base_url, request.params["bucket_name"], request.params["object_id"]
         )
         range = request.get_header("range", None)
         if range:
@@ -486,6 +486,7 @@ def delete(request, response, storage, *args, **kwargs):
 
 def patch(request, response, storage, *args, **kwargs):
     obj = _patch(
+        request,
         storage,
         request.params["bucket_name"],
         request.params["object_id"],
@@ -511,7 +512,7 @@ def batch(request, response, storage, *args, **kwargs):
         object_id = item.get("object_id")
         meta = item.get("meta")
         if method == "PATCH":
-            resp_data = _patch(storage, bucket_name, object_id, meta)
+            resp_data = _patch(request, storage, bucket_name, object_id, meta)
             if resp_data:
                 response.write("HTTP/1.1 200 OK\r\n")
                 response.write("Content-Type: application/json; charset=UTF-8\r\n")

@@ -4,6 +4,7 @@ import logging
 import os
 from hashlib import sha256
 from wcmatch import glob
+from urllib.parse import urlparse
 import re
 import fs
 from fs.errors import FileExpected, ResourceNotFound
@@ -279,10 +280,11 @@ class Storage(object):
             return file_content[:total_size]
         return None
 
-    def get_file_obj(self, bucket_name, file_name):
+    def get_file_obj(self, base_url, bucket_name, file_name):
         """Gets the meta information for a file within a bucket
 
         Arguments:
+            base_url {str} -- Base URL for mediaLink
             bucket_name {str} -- Name of the bucket
             file_name {str} -- File name
 
@@ -294,7 +296,12 @@ class Storage(object):
         """
 
         try:
-            return self.objects[bucket_name][file_name]
+            obj = self.objects[bucket_name][file_name]
+            if "mediaLink" in obj and not obj["mediaLink"].startswith(base_url):
+                parsed_base_url = urlparse(base_url)
+                parsed_media_link = urlparse(obj["mediaLink"])
+                obj["mediaLink"] = parsed_media_link._replace(scheme=parsed_base_url.scheme, netloc=parsed_base_url.netloc).geturl()
+            return obj
         except KeyError:
             raise NotFound
 
